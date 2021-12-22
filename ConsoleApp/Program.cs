@@ -1,8 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using System;
-using ConsoleApp.Services;
-using ConsoleApp.Interfaces;
+﻿using System;
+using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace ConsoleApp
 {
@@ -10,40 +8,34 @@ namespace ConsoleApp
     {
         public static void Main(string[] args)
         {
-            // Create a host to run and manage the services
-            var host = Host.CreateDefaultBuilder(args).ConfigureServices(services =>
+            // Get server handle
+            var client = new MongoClient("mongodb://localhost:27017");
+
+            // Get database handle
+            var database = client.GetDatabase("MyDatabase");
+
+            // get collection handle
+            var collection = database.GetCollection<BsonDocument>("MyCollection");
+
+            var document = new BsonDocument
             {
-                services.AddSingleton<ISingleton, MyService>();
-                services.AddScoped<IScoped, MyService>();
-                services.AddTransient<ITransient, MyService>();
-                services.AddTransient<MyLogger>();
-            }).Build();
+                { "name", "MongoDB" },
+                { "type", "Database" },
+                { "count", 1 },
+                { "info", new BsonDocument
+                   {
+                      { "x", 203 },
+                      { "y", 102 }
+                   }
+                }
+            };
 
-            // Run service in different scopes
-            using var serviceScope1 = host.Services.CreateScope();
-            {
-                IServiceProvider provider = serviceScope1.ServiceProvider;
+            collection.InsertOne(document);
 
-                provider.GetRequiredService<MyLogger>().CheckServicesId("Scope 1-Call 1");
+            var ret_document = collection.Find(new BsonDocument()).ToList();
 
-                Console.WriteLine("...");
-
-                provider.GetRequiredService<MyLogger>().CheckServicesId("Scope 1-Call 1");
-            }
-
-            Console.WriteLine();
-            
-            using var serviceScope2 = host.Services.CreateScope();
-            {
-                IServiceProvider provider = serviceScope2.ServiceProvider;
-
-                provider.GetRequiredService<MyLogger>().CheckServicesId("Scope 2-Call 1");
-
-                Console.WriteLine("...");
-
-                provider.GetRequiredService<MyLogger>().CheckServicesId("Scope 2-Call 1");
-            }
-
+            foreach(var doc in ret_document)
+            Console.WriteLine(doc.ToString() + "\n");
         }
     }
 }
